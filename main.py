@@ -64,8 +64,15 @@ def main() -> int:
     args = parser.parse_args()
 
     print(f"==> Mengambil data {args.symbol} ({args.interval})...")
-    candles = get_candles(args.symbol, args.interval, args.limit)
-    sig = analyze(candles)
+    try:
+        candles = get_candles(args.symbol, args.interval, args.limit)
+        sig = analyze(candles)
+    except Exception as exc:  # noqa: BLE001
+        # Jangan jatuhkan workflow (exit 1) hanya karena sumber data lagi
+        # bermasalah. Laporkan dengan jelas lalu keluar sukses.
+        print(f"[main] GAGAL mengambil/menganalisa data: {exc}")
+        print("[main] Lewati run ini. Akan dicoba lagi pada jadwal berikutnya.")
+        return 0
 
     # Cetak ke terminal / log GitHub Actions.
     print("=" * 48)
