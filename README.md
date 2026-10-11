@@ -184,7 +184,7 @@ Mode ini mengubah sinyal arah menjadi rencana futures:
 ### Cara pakai
 
 ```bash
-# Dasar: leverage 3x (default)
+# Futures saja — leverage 3x (default)
 python main.py --futures
 
 # Atur leverage
@@ -196,6 +196,36 @@ python main.py --futures --leverage 5 --capital 500 --risk 2
 # Futures + watch tiap menit
 python main.py --futures --leverage 3 --watch
 ```
+
+### 📊 Mode SPOT + FUTURES sekaligus (`--both`)
+
+Mau lihat **crypto biasa (spot) DAN futures bersamaan** dalam satu pesan? Pakai `--both`:
+
+```bash
+# Spot + futures sekaligus
+python main.py --both --leverage 3
+
+# Spot + futures, dengan ukuran posisi, tiap menit
+python main.py --both --leverage 5 --capital 500 --risk 2 --watch
+```
+
+Satu pesan Telegram akan berisi dua bagian:
+```
+📊 BTC — SPOT & FUTURES
+💰 Harga: $70,320   |   🕒 1h
+──────────────
+🏦 SPOT: 🟢📈 BELI (46%)
+  • SMA20 di atas SMA50 → tren naik
+  ...
+──────────────
+⚡ FUTURES: 🟢⬆️ LONG (46%, 5x)
+  🛑 SL: $68,241   ✅ TP: $74,476 (R:R 1:2)
+  💀 Likuidasi: $56,256
+  📦 Posisi: $338 (0.0048 BTC)
+```
+
+> GitHub Actions (tiap 5 menit) sekarang otomatis pakai mode `--both`, jadi notif
+> terjadwal sudah berisi spot + futures.
 
 Contoh output Telegram:
 

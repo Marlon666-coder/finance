@@ -30,6 +30,7 @@ from btcsignal.data import get_candles
 from btcsignal.engine import analyze
 from btcsignal.futures import build_plan
 from btcsignal.notify import (
+    format_combined_message,
     format_futures_message,
     format_message,
     send_telegram,
@@ -67,9 +68,13 @@ def run_once(args) -> int:
         print("[main] Lewati siklus ini. Akan dicoba lagi berikutnya.")
         return 0
 
+    # Mode: spot saja, futures saja, atau keduanya (--both).
+    want_futures = args.futures or args.both
+    want_spot = (not args.futures) or args.both  # spot tampil kecuali futures-only
+
     # Mode FUTURES: bangun rencana (LONG/SHORT, SL, TP, likuidasi, ukuran posisi).
     plan = None
-    if args.futures:
+    if want_futures:
         plan = build_plan(
             sig,
             candles,
@@ -80,39 +85,39 @@ def run_once(args) -> int:
 
     # Cetak ke terminal / log.
     print("=" * 48)
-    if plan is not None:
-        print(f"  MODE       : FUTURES ⚡  (leverage {plan.leverage}x)")
-        print(f"  POSISI     : {plan.position}")
-        print(f"  Entry      : ${plan.entry:,.2f}")
-        print(f"  Keyakinan  : {plan.confidence}%")
-        if plan.position != "NO-TRADE":
-            print(f"  Stop Loss  : ${plan.stop_loss:,.2f}")
-            print(f"  Take Profit: ${plan.take_profit:,.2f}")
-            print(f"  Risk:Reward: 1:{plan.risk_reward}")
-            print(f"  Likuidasi  : ${plan.liquidation:,.2f} (perkiraan)")
-            if plan.position_size_usd:
-                print(f"  Ukuran pos : ${plan.position_size_usd:,.0f} "
-                      f"({plan.position_size_btc} BTC)")
-        print("  Catatan    :")
-        for n in plan.notes:
-            print(f"    - {n}")
-    else:
-        print(f"  AKSI       : {sig.action}")
-        print(f"  Harga      : ${sig.price:,.2f}")
-        print(f"  Keyakinan  : {sig.confidence}%  (skor {sig.score:+.2f})")
-        print(f"  Timeframe  : {args.interval}")
-        print("  Indikator  :", json.dumps(sig.details, ensure_ascii=False))
-        print("  Alasan     :")
+    if want_spot:
+        print(f"  🏦 SPOT     : {sig.action}  ({sig.confidence}%)")
+        print(f"     Harga    : ${sig.price:,.2f}  |  TF {args.interval}")
         for r in sig.reasons:
-            print(f"    - {r}")
+            print(f"       - {r}")
+        if plan is not None:
+            print("  " + "-" * 44)
+    if plan is not None:
+        print(f"  ⚡ FUTURES  : {plan.position}  (leverage {plan.leverage}x)")
+        print(f"     Entry    : ${plan.entry:,.2f}  ({plan.confidence}%)")
+        if plan.position != "NO-TRADE":
+            print(f"     Stop Loss: ${plan.stop_loss:,.2f}")
+            print(f"     Take Prof: ${plan.take_profit:,.2f}  (R:R 1:{plan.risk_reward})")
+            print(f"     Likuidasi: ${plan.liquidation:,.2f} (perkiraan)")
+            if plan.position_size_usd:
+                print(f"     Ukuran   : ${plan.position_size_usd:,.0f} "
+                      f"({plan.position_size_btc} BTC)")
+        print("     Catatan  :")
+        for n in plan.notes:
+            print(f"       - {n}")
     print("=" * 48)
 
     # Tentukan apakah perlu kirim notifikasi.
     should_notify = not args.no_notify
     last_action = _load_last_action()
 
-    # Untuk futures, "perubahan" dilihat dari posisi; untuk spot, dari aksi.
-    current_state = plan.position if plan is not None else sig.action
+    # "Perubahan" dilihat dari gabungan spot(aksi) + futures(posisi).
+    if args.both and plan is not None:
+        current_state = f"{sig.action}|{plan.position}"
+    elif plan is not None:
+        current_state = plan.position
+    else:
+        current_state = sig.action
 
     if args.notify_only and sig.action != args.notify_only:
         should_notify = False
@@ -121,7 +126,9 @@ def run_once(args) -> int:
         print(f"[main] Sama dengan sebelumnya ({current_state}) — lewati notif.")
 
     if should_notify:
-        if plan is not None:
+        if args.both and plan is not None:
+            send_telegram(format_combined_message(sig, plan, args.interval))
+        elif plan is not None:
             send_telegram(format_futures_message(plan, args.interval))
         else:
             send_telegram(format_message(sig, args.interval))
@@ -162,7 +169,12 @@ def main() -> int:
     parser.add_argument(
         "--futures",
         action="store_true",
-        help="Mode FUTURES: sinyal LONG/SHORT + Stop Loss, Take Profit, likuidasi.",
+        help="Mode FUTURES saja: sinyal LONG/SHORT + Stop Loss, Take Profit, likuidasi.",
+    )
+    parser.add_argument(
+        "--both",
+        action="store_true",
+        help="Tampilkan SPOT + FUTURES sekaligus dalam satu pesan.",
     )
     parser.add_argument(
         "--leverage",

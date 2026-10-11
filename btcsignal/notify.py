@@ -84,6 +84,47 @@ def format_futures_message(plan, interval: str) -> str:
     return "\n".join(lines)
 
 
+def format_combined_message(sig: Signal, plan, interval: str) -> str:
+    """Satu pesan berisi SPOT + FUTURES sekaligus."""
+    spot_emoji = _EMOJI.get(sig.action, "")
+    pos = _POS_EMOJI.get(plan.position, plan.position)
+
+    lines = [
+        "📊 *BTC — SPOT & FUTURES*",
+        f"💰 Harga: *${sig.price:,.2f}*   |   🕒 `{interval}`",
+        "",
+        "──────────────",
+        f"🏦 *SPOT:* {spot_emoji} *{sig.action}*  ({sig.confidence}%)",
+    ]
+    for r in sig.reasons:
+        lines.append(f"  • {r}")
+
+    lines += [
+        "",
+        "──────────────",
+        f"⚡ *FUTURES:* {pos}  ({plan.confidence}%, {plan.leverage}x)",
+    ]
+    if plan.position != "NO-TRADE":
+        lines += [
+            f"  🛑 SL: *${plan.stop_loss:,.2f}*",
+            f"  ✅ TP: *${plan.take_profit:,.2f}*  (R:R 1:{plan.risk_reward})",
+            f"  💀 Likuidasi: *${plan.liquidation:,.2f}*",
+        ]
+        if plan.position_size_usd:
+            lines.append(
+                f"  📦 Posisi: *${plan.position_size_usd:,.0f}* "
+                f"({plan.position_size_btc} BTC)"
+            )
+    else:
+        lines.append("  (tidak buka posisi — sinyal lemah/netral)")
+
+    lines += [
+        "",
+        "_⚠️ Bukan nasihat finansial. Futures bisa likuidasi (modal habis)._",
+    ]
+    return "\n".join(lines)
+
+
 def send_telegram(text: str) -> bool:
     """Kirim pesan. Return True kalau terkirim, False kalau dilewati/gagal."""
     if requests is None:

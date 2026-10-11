@@ -41,5 +41,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python main.py \
+            --both \
+            --leverage 3 \
             --interval "${{ github.event.inputs.interval || '1h' }}" \
             --only-on-change
