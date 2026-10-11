@@ -167,6 +167,61 @@ Program langsung berhenti. Untuk menyalakan lagi, cukup jalankan perintah
 
 ---
 
+## ⚡ Mode FUTURES (LONG / SHORT + Stop Loss, Take Profit, likuidasi)
+
+> ## ☠️ PERINGATAN KERAS
+> **Futures SANGAT berisiko.** Leverage memperbesar untung **dan** rugi — posisi
+> bisa **dilikuidasi (modal habis total)** dalam hitungan menit. Ini **bukan
+> nasihat finansial**. Kalau baru belajar: **jangan pakai uang asli dulu**,
+> coba di **testnet/demo**, dan gunakan **leverage kecil**.
+
+Mode ini mengubah sinyal arah menjadi rencana futures:
+- Posisi **LONG** (saat BELI) / **SHORT** (saat JUAL) / **NO-TRADE** (saat TAHAN atau sinyal lemah)
+- **Stop Loss** & **Take Profit** otomatis berbasis volatilitas (ATR), risk:reward 1:2
+- **Estimasi harga likuidasi** sesuai leverage + peringatan kalau leverage terlalu tinggi
+- **Saran ukuran posisi** berdasarkan modal & % risiko
+
+### Cara pakai
+
+```bash
+# Dasar: leverage 3x (default)
+python main.py --futures
+
+# Atur leverage
+python main.py --futures --leverage 5
+
+# Dengan saran ukuran posisi: modal $500, risiko 2% per trade
+python main.py --futures --leverage 5 --capital 500 --risk 2
+
+# Futures + watch tiap menit
+python main.py --futures --leverage 3 --watch
+```
+
+Contoh output Telegram:
+
+```
+⚡ BTC FUTURES — 🟢⬆️ LONG
+💰 Entry: $70,320.00
+🎯 Keyakinan: 46%
+🕒 Timeframe: 1h  |  ⚖️ Leverage: 5x
+
+🛑 Stop Loss : $68,241.60
+✅ Take Profit: $74,476.81
+📊 Risk:Reward: 1:2.0
+💀 Est. Likuidasi: $56,256.00
+📦 Ukuran posisi: $338 (0.0048 BTC)
+```
+
+**Catatan penting:**
+- Harga likuidasi di atas hanya **perkiraan kasar** — exchange (mode cross/isolated,
+  funding fee, dll) bisa berbeda. **Selalu cek di exchange kamu.**
+- Software **tidak** mengeksekusi order di futures — kamu tetap buka posisi
+  **manual** di exchange (mis. Binance Futures). Software hanya kasih rencana.
+- Kalau muncul peringatan "likuidasi lebih dekat daripada Stop Loss" →
+  **turunkan leverage**, itu tanda posisi terlalu berisiko.
+
+---
+
 ## 🔁 Auto-trading (eksekusi jual-beli otomatis)?
 
 Versi ini **sengaja TIDAK** mengeksekusi jual-beli sungguhan — ia hanya

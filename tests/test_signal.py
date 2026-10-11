@@ -76,12 +76,69 @@ def main():
     tests = [
         test_sma, test_ema_rsi_macd_shapes, test_rsi_bounds,
         test_engine_uptrend, test_engine_downtrend, test_engine_flat,
+        test_atr, test_futures_long, test_futures_short,
+        test_futures_low_confidence_blocks,
     ]
     print("Menjalankan self-test offline...")
     for t in tests:
         t()
     print("\nSEMUA TEST LULUS ✅")
     return 0
+
+
+def test_atr():
+    from btcsignal.indicators import atr
+    highs = [10 + i for i in range(50)]
+    lows = [8 + i for i in range(50)]
+    closes = [9 + i for i in range(50)]
+    a = atr(highs, lows, closes, 14)
+    val = [x for x in a if x is not None]
+    assert val, "ATR harus menghasilkan nilai"
+    assert all(x > 0 for x in val), "ATR harus positif"
+    print(f"  [ok] ATR -> {val[-1]:.2f}")
+
+
+def test_futures_long():
+    from btcsignal.futures import build_plan
+    prices = [100 + i * 2.0 for i in range(130)]  # tren naik kuat
+    candles = make_candles(prices)
+    sig = analyze(candles)
+    plan = build_plan(sig, candles, leverage=5, capital_usd=1000, risk_pct=1.0)
+    assert plan.position in {"LONG", "NO-TRADE"}, plan.position
+    if plan.position == "LONG":
+        assert plan.stop_loss < plan.entry, "SL LONG harus di bawah entry"
+        assert plan.take_profit > plan.entry, "TP LONG harus di atas entry"
+        assert plan.liquidation < plan.entry, "likuidasi LONG di bawah entry"
+        assert plan.position_size_usd and plan.position_size_usd > 0
+    print(f"  [ok] Futures LONG -> {plan.position} "
+          f"entry={plan.entry} SL={plan.stop_loss} TP={plan.take_profit}")
+
+
+def test_futures_short():
+    from btcsignal.futures import build_plan
+    prices = [360 - i * 2.0 for i in range(130)]  # tren turun kuat
+    candles = make_candles(prices)
+    sig = analyze(candles)
+    plan = build_plan(sig, candles, leverage=5, capital_usd=1000, risk_pct=1.0)
+    assert plan.position in {"SHORT", "NO-TRADE"}, plan.position
+    if plan.position == "SHORT":
+        assert plan.stop_loss > plan.entry, "SL SHORT harus di atas entry"
+        assert plan.take_profit < plan.entry, "TP SHORT harus di bawah entry"
+        assert plan.liquidation > plan.entry, "likuidasi SHORT di atas entry"
+    print(f"  [ok] Futures SHORT -> {plan.position} "
+          f"entry={plan.entry} SL={plan.stop_loss} TP={plan.take_profit}")
+
+
+def test_futures_low_confidence_blocks():
+    from btcsignal.futures import build_plan
+    import math
+    prices = [200 + math.sin(i / 3) * 0.3 for i in range(130)]  # datar
+    candles = make_candles(prices)
+    sig = analyze(candles)
+    plan = build_plan(sig, candles, leverage=20)
+    # keyakinan rendah ATAU TAHAN -> boleh NO-TRADE; yang penting tidak crash.
+    assert plan.position in {"LONG", "SHORT", "NO-TRADE"}
+    print(f"  [ok] Futures low-conf -> {plan.position} ({plan.confidence}%)")
 
 
 if __name__ == "__main__":

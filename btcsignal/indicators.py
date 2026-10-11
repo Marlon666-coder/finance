@@ -105,3 +105,33 @@ def macd(
         if sv is not None and macd_line[real_idx] is not None:
             histogram[real_idx] = macd_line[real_idx] - sv
     return macd_line, signal_line, histogram
+
+
+def atr(highs, lows, closes, period: int = 14):
+    """Average True Range — ukuran volatilitas (seberapa liar harga bergerak).
+
+    Dipakai untuk menentukan jarak Stop Loss yang masuk akal. Mengembalikan
+    list ATR (elemen awal = None sampai cukup data).
+    """
+    n = len(closes)
+    out = [None] * n
+    if n < period + 1:
+        return out
+
+    true_ranges = [None]  # indeks 0 tak punya close sebelumnya
+    for i in range(1, n):
+        tr = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        )
+        true_ranges.append(tr)
+
+    # ATR awal = rata-rata TR periode pertama, lalu smoothing ala Wilder.
+    first = sum(true_ranges[1:period + 1]) / period
+    out[period] = first
+    prev = first
+    for i in range(period + 1, n):
+        prev = (prev * (period - 1) + true_ranges[i]) / period
+        out[i] = prev
+    return out

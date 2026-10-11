@@ -42,6 +42,48 @@ def format_message(sig: Signal, interval: str) -> str:
     return "\n".join(lines)
 
 
+_POS_EMOJI = {"LONG": "🟢⬆️ LONG", "SHORT": "🔴⬇️ SHORT", "NO-TRADE": "⚪⏸️ NO-TRADE"}
+
+
+def format_futures_message(plan, interval: str) -> str:
+    """Format pesan untuk rencana FUTURES."""
+    head = _POS_EMOJI.get(plan.position, plan.position)
+    lines = [
+        f"⚡ *BTC FUTURES — {head}*",
+        "",
+        f"💰 Entry: *${plan.entry:,.2f}*",
+        f"🎯 Keyakinan: *{plan.confidence}%*",
+        f"🕒 Timeframe: `{interval}`  |  ⚖️ Leverage: *{plan.leverage}x*",
+    ]
+
+    if plan.position != "NO-TRADE":
+        lines += [
+            "",
+            f"🛑 Stop Loss : *${plan.stop_loss:,.2f}*",
+            f"✅ Take Profit: *${plan.take_profit:,.2f}*",
+            f"📊 Risk:Reward: *1:{plan.risk_reward}*",
+            f"💀 Est. Likuidasi: *${plan.liquidation:,.2f}*",
+        ]
+        if plan.position_size_usd:
+            lines.append(
+                f"📦 Ukuran posisi: *${plan.position_size_usd:,.0f}* "
+                f"({plan.position_size_btc} BTC)"
+            )
+
+    if plan.notes:
+        lines.append("")
+        lines.append("*Catatan:*")
+        for n in plan.notes:
+            lines.append(f"• {n}")
+
+    lines += [
+        "",
+        "_☠️ FUTURES SANGAT BERISIKO — bisa likuidasi (modal habis)._",
+        "_Bukan nasihat finansial. Pakai leverage kecil & SL selalu._",
+    ]
+    return "\n".join(lines)
+
+
 def send_telegram(text: str) -> bool:
     """Kirim pesan. Return True kalau terkirim, False kalau dilewati/gagal."""
     if requests is None:

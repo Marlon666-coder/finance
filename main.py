@@ -28,7 +28,12 @@ from datetime import datetime
 
 from btcsignal.data import get_candles
 from btcsignal.engine import analyze
-from btcsignal.notify import format_message, send_telegram
+from btcsignal.futures import build_plan
+from btcsignal.notify import (
+    format_futures_message,
+    format_message,
+    send_telegram,
+)
 
 STATE_FILE = ".last_signal.json"
 
@@ -62,32 +67,66 @@ def run_once(args) -> int:
         print("[main] Lewati siklus ini. Akan dicoba lagi berikutnya.")
         return 0
 
+    # Mode FUTURES: bangun rencana (LONG/SHORT, SL, TP, likuidasi, ukuran posisi).
+    plan = None
+    if args.futures:
+        plan = build_plan(
+            sig,
+            candles,
+            leverage=args.leverage,
+            capital_usd=args.capital,
+            risk_pct=args.risk,
+        )
+
     # Cetak ke terminal / log.
     print("=" * 48)
-    print(f"  AKSI       : {sig.action}")
-    print(f"  Harga      : ${sig.price:,.2f}")
-    print(f"  Keyakinan  : {sig.confidence}%  (skor {sig.score:+.2f})")
-    print(f"  Timeframe  : {args.interval}")
-    print("  Indikator  :", json.dumps(sig.details, ensure_ascii=False))
-    print("  Alasan     :")
-    for r in sig.reasons:
-        print(f"    - {r}")
+    if plan is not None:
+        print(f"  MODE       : FUTURES ⚡  (leverage {plan.leverage}x)")
+        print(f"  POSISI     : {plan.position}")
+        print(f"  Entry      : ${plan.entry:,.2f}")
+        print(f"  Keyakinan  : {plan.confidence}%")
+        if plan.position != "NO-TRADE":
+            print(f"  Stop Loss  : ${plan.stop_loss:,.2f}")
+            print(f"  Take Profit: ${plan.take_profit:,.2f}")
+            print(f"  Risk:Reward: 1:{plan.risk_reward}")
+            print(f"  Likuidasi  : ${plan.liquidation:,.2f} (perkiraan)")
+            if plan.position_size_usd:
+                print(f"  Ukuran pos : ${plan.position_size_usd:,.0f} "
+                      f"({plan.position_size_btc} BTC)")
+        print("  Catatan    :")
+        for n in plan.notes:
+            print(f"    - {n}")
+    else:
+        print(f"  AKSI       : {sig.action}")
+        print(f"  Harga      : ${sig.price:,.2f}")
+        print(f"  Keyakinan  : {sig.confidence}%  (skor {sig.score:+.2f})")
+        print(f"  Timeframe  : {args.interval}")
+        print("  Indikator  :", json.dumps(sig.details, ensure_ascii=False))
+        print("  Alasan     :")
+        for r in sig.reasons:
+            print(f"    - {r}")
     print("=" * 48)
 
     # Tentukan apakah perlu kirim notifikasi.
     should_notify = not args.no_notify
     last_action = _load_last_action()
 
+    # Untuk futures, "perubahan" dilihat dari posisi; untuk spot, dari aksi.
+    current_state = plan.position if plan is not None else sig.action
+
     if args.notify_only and sig.action != args.notify_only:
         should_notify = False
-    if args.only_on_change and last_action == sig.action:
+    if args.only_on_change and last_action == current_state:
         should_notify = False
-        print(f"[main] Aksi sama dengan sebelumnya ({sig.action}) — lewati notif.")
+        print(f"[main] Sama dengan sebelumnya ({current_state}) — lewati notif.")
 
     if should_notify:
-        send_telegram(format_message(sig, args.interval))
+        if plan is not None:
+            send_telegram(format_futures_message(plan, args.interval))
+        else:
+            send_telegram(format_message(sig, args.interval))
 
-    _save_last_action(sig.action)
+    _save_last_action(current_state)
 
     # Expose hasil ke GitHub Actions step berikutnya (bila ada).
     gh_out = os.environ.get("GITHUB_OUTPUT")
@@ -119,6 +158,29 @@ def main() -> int:
         "--no-notify",
         action="store_true",
         help="Jangan kirim Telegram (hanya cetak ke terminal).",
+    )
+    parser.add_argument(
+        "--futures",
+        action="store_true",
+        help="Mode FUTURES: sinyal LONG/SHORT + Stop Loss, Take Profit, likuidasi.",
+    )
+    parser.add_argument(
+        "--leverage",
+        type=int,
+        default=3,
+        help="Leverage untuk mode futures (default 3x). Makin tinggi makin bahaya!",
+    )
+    parser.add_argument(
+        "--capital",
+        type=float,
+        default=0.0,
+        help="Modal (USD) untuk saran ukuran posisi futures. 0 = lewati.",
+    )
+    parser.add_argument(
+        "--risk",
+        type=float,
+        default=1.0,
+        help="Persen modal yang dirisikokan per trade (default 1%%).",
     )
     parser.add_argument(
         "--watch",
