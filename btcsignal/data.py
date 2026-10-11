@@ -171,3 +171,32 @@ def get_candles(
 
 def closes(candles: List[Candle]) -> List[float]:
     return [c.close for c in candles]
+
+
+# Sumber kurs USD->IDR (dicoba berurutan). Semua gratis & tanpa API key.
+_FX_SOURCES = [
+    ("https://api.frankfurter.app/latest", {"from": "USD", "to": "IDR"},
+     lambda d: d["rates"]["IDR"]),
+    ("https://open.er-api.com/v6/latest/USD", {},
+     lambda d: d["rates"]["IDR"]),
+    ("https://api.exchangerate-api.com/v4/latest/USD", {},
+     lambda d: d["rates"]["IDR"]),
+]
+
+# Kurs cadangan kalau semua sumber gagal (perkiraan; akan ketinggalan zaman).
+_FALLBACK_USD_IDR = 16000.0
+
+
+def get_usd_to_idr() -> float:
+    """Ambil kurs 1 USD = berapa IDR. Pakai fallback kalau semua sumber gagal."""
+    for url, params, extract in _FX_SOURCES:
+        try:
+            data = _get_json(url, params, retries=1)
+            rate = float(extract(data))
+            if rate > 0:
+                print(f"[fx] Kurs USD->IDR = {rate:,.0f} (dari {url})")
+                return rate
+        except Exception as exc:  # noqa: BLE001
+            print(f"[fx] Sumber kurs gagal ({url}): {exc}")
+    print(f"[fx] Semua sumber kurs gagal — pakai perkiraan {_FALLBACK_USD_IDR:,.0f}.")
+    return _FALLBACK_USD_IDR

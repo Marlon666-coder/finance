@@ -26,13 +26,14 @@ import sys
 import time
 from datetime import datetime
 
-from btcsignal.data import get_candles
+from btcsignal.data import get_candles, get_usd_to_idr
 from btcsignal.engine import analyze
 from btcsignal.futures import build_plan
 from btcsignal.notify import (
     format_combined_message,
     format_futures_message,
     format_message,
+    money,
     send_telegram,
 )
 
@@ -68,6 +69,15 @@ def run_once(args) -> int:
         print("[main] Lewati siklus ini. Akan dicoba lagi berikutnya.")
         return 0
 
+    # Mata uang tampilan: usd (default) atau idr.
+    currency = (args.currency or "usd").lower()
+    rate = 1.0
+    if currency == "idr":
+        rate = get_usd_to_idr()
+
+    def m(v, dec=None):
+        return money(v, currency, rate, dec)
+
     # Mode: spot saja, futures saja, atau keduanya (--both).
     want_futures = args.futures or args.both
     want_spot = (not args.futures) or args.both  # spot tampil kecuali futures-only
@@ -87,20 +97,20 @@ def run_once(args) -> int:
     print("=" * 48)
     if want_spot:
         print(f"  🏦 SPOT     : {sig.action}  ({sig.confidence}%)")
-        print(f"     Harga    : ${sig.price:,.2f}  |  TF {args.interval}")
+        print(f"     Harga    : {m(sig.price)}  |  TF {args.interval}")
         for r in sig.reasons:
             print(f"       - {r}")
         if plan is not None:
             print("  " + "-" * 44)
     if plan is not None:
         print(f"  ⚡ FUTURES  : {plan.position}  (leverage {plan.leverage}x)")
-        print(f"     Entry    : ${plan.entry:,.2f}  ({plan.confidence}%)")
+        print(f"     Entry    : {m(plan.entry)}  ({plan.confidence}%)")
         if plan.position != "NO-TRADE":
-            print(f"     Stop Loss: ${plan.stop_loss:,.2f}")
-            print(f"     Take Prof: ${plan.take_profit:,.2f}  (R:R 1:{plan.risk_reward})")
-            print(f"     Likuidasi: ${plan.liquidation:,.2f} (perkiraan)")
+            print(f"     Stop Loss: {m(plan.stop_loss)}")
+            print(f"     Take Prof: {m(plan.take_profit)}  (R:R 1:{plan.risk_reward})")
+            print(f"     Likuidasi: {m(plan.liquidation)} (perkiraan)")
             if plan.position_size_usd:
-                print(f"     Ukuran   : ${plan.position_size_usd:,.0f} "
+                print(f"     Ukuran   : {m(plan.position_size_usd, 0)} "
                       f"({plan.position_size_btc} BTC)")
         print("     Catatan  :")
         for n in plan.notes:
@@ -127,11 +137,11 @@ def run_once(args) -> int:
 
     if should_notify:
         if args.both and plan is not None:
-            send_telegram(format_combined_message(sig, plan, args.interval))
+            send_telegram(format_combined_message(sig, plan, args.interval, currency, rate))
         elif plan is not None:
-            send_telegram(format_futures_message(plan, args.interval))
+            send_telegram(format_futures_message(plan, args.interval, currency, rate))
         else:
-            send_telegram(format_message(sig, args.interval))
+            send_telegram(format_message(sig, args.interval, currency, rate))
 
     _save_last_action(current_state)
 
@@ -151,6 +161,12 @@ def main() -> int:
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--interval", default="1h", help="1h, 4h, atau 1d")
     parser.add_argument("--limit", type=int, default=300)
+    parser.add_argument(
+        "--currency",
+        choices=["usd", "idr"],
+        default="usd",
+        help="Mata uang tampilan harga: usd (default) atau idr (Rupiah).",
+    )
     parser.add_argument(
         "--only-on-change",
         action="store_true",

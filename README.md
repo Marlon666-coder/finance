@@ -44,7 +44,25 @@ python main.py                 # timeframe 1 jam (default)
 python main.py --interval 4h   # ganti ke 4 jam
 python main.py --interval 1d   # harian
 python main.py --no-notify     # cuma cetak di terminal, tanpa Telegram
+python main.py --currency idr  # tampilkan harga dalam Rupiah (Rp)
 ```
+
+### 💱 Mata uang: Dollar atau Rupiah
+
+Secara default harga tampil dalam **USD ($)**. Mau dalam **Rupiah (Rp)**? Tambahkan `--currency idr`:
+
+```bash
+python main.py --currency idr
+python main.py --both --currency idr --watch
+python main.py --futures --leverage 3 --currency idr
+```
+
+Kurs USD→IDR diambil otomatis dari API gratis (ada beberapa sumber cadangan).
+Contoh tampilan IDR: `Rp1,142,700,000`.
+
+> Catatan: analisa indikator tetap memakai data BTC/USD (paling likuid & akurat).
+> Rupiah hanya untuk **tampilan harga** — hasil sinyal (BELI/JUAL/LONG/SHORT) sama saja.
+> Baris modal/risiko futures (`--capital`) tetap dalam USD karena itu nilai input kamu.
 
 Contoh output:
 

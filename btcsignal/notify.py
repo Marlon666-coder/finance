@@ -24,12 +24,30 @@ TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 _EMOJI = {"BELI": "🟢📈", "JUAL": "🔴📉", "TAHAN": "🟡✋"}
 
 
-def format_message(sig: Signal, interval: str) -> str:
+def money(value_usd: float, currency: str = "usd", rate: float = 1.0,
+          decimals: int | None = None) -> str:
+    """Format angka USD ke mata uang pilihan (usd / idr).
+
+    currency : "usd" atau "idr"
+    rate     : kurs 1 USD = berapa IDR (dipakai kalau currency=idr)
+    """
+    cur = (currency or "usd").lower()
+    if cur == "idr":
+        val = value_usd * rate
+        dec = 0 if decimals is None else decimals
+        return f"Rp{val:,.{dec}f}"
+    # default USD
+    dec = 2 if decimals is None else decimals
+    return f"${value_usd:,.{dec}f}"
+
+
+def format_message(sig: Signal, interval: str,
+                   currency: str = "usd", rate: float = 1.0) -> str:
     emoji = _EMOJI.get(sig.action, "")
     lines = [
         f"{emoji} *BTC SIGNAL — {sig.action}*",
         "",
-        f"💰 Harga: *${sig.price:,.2f}*",
+        f"💰 Harga: *{money(sig.price, currency, rate)}*",
         f"🎯 Keyakinan: *{sig.confidence}%*  (skor {sig.score:+.2f})",
         f"🕒 Timeframe: `{interval}`",
         "",
@@ -45,13 +63,14 @@ def format_message(sig: Signal, interval: str) -> str:
 _POS_EMOJI = {"LONG": "🟢⬆️ LONG", "SHORT": "🔴⬇️ SHORT", "NO-TRADE": "⚪⏸️ NO-TRADE"}
 
 
-def format_futures_message(plan, interval: str) -> str:
+def format_futures_message(plan, interval: str,
+                           currency: str = "usd", rate: float = 1.0) -> str:
     """Format pesan untuk rencana FUTURES."""
     head = _POS_EMOJI.get(plan.position, plan.position)
     lines = [
         f"⚡ *BTC FUTURES — {head}*",
         "",
-        f"💰 Entry: *${plan.entry:,.2f}*",
+        f"💰 Entry: *{money(plan.entry, currency, rate)}*",
         f"🎯 Keyakinan: *{plan.confidence}%*",
         f"🕒 Timeframe: `{interval}`  |  ⚖️ Leverage: *{plan.leverage}x*",
     ]
@@ -59,14 +78,14 @@ def format_futures_message(plan, interval: str) -> str:
     if plan.position != "NO-TRADE":
         lines += [
             "",
-            f"🛑 Stop Loss : *${plan.stop_loss:,.2f}*",
-            f"✅ Take Profit: *${plan.take_profit:,.2f}*",
+            f"🛑 Stop Loss : *{money(plan.stop_loss, currency, rate)}*",
+            f"✅ Take Profit: *{money(plan.take_profit, currency, rate)}*",
             f"📊 Risk:Reward: *1:{plan.risk_reward}*",
-            f"💀 Est. Likuidasi: *${plan.liquidation:,.2f}*",
+            f"💀 Est. Likuidasi: *{money(plan.liquidation, currency, rate)}*",
         ]
         if plan.position_size_usd:
             lines.append(
-                f"📦 Ukuran posisi: *${plan.position_size_usd:,.0f}* "
+                f"📦 Ukuran posisi: *{money(plan.position_size_usd, currency, rate, 0)}* "
                 f"({plan.position_size_btc} BTC)"
             )
 
@@ -84,14 +103,15 @@ def format_futures_message(plan, interval: str) -> str:
     return "\n".join(lines)
 
 
-def format_combined_message(sig: Signal, plan, interval: str) -> str:
+def format_combined_message(sig: Signal, plan, interval: str,
+                            currency: str = "usd", rate: float = 1.0) -> str:
     """Satu pesan berisi SPOT + FUTURES sekaligus."""
     spot_emoji = _EMOJI.get(sig.action, "")
     pos = _POS_EMOJI.get(plan.position, plan.position)
 
     lines = [
         "📊 *BTC — SPOT & FUTURES*",
-        f"💰 Harga: *${sig.price:,.2f}*   |   🕒 `{interval}`",
+        f"💰 Harga: *{money(sig.price, currency, rate)}*   |   🕒 `{interval}`",
         "",
         "──────────────",
         f"🏦 *SPOT:* {spot_emoji} *{sig.action}*  ({sig.confidence}%)",
@@ -106,13 +126,13 @@ def format_combined_message(sig: Signal, plan, interval: str) -> str:
     ]
     if plan.position != "NO-TRADE":
         lines += [
-            f"  🛑 SL: *${plan.stop_loss:,.2f}*",
-            f"  ✅ TP: *${plan.take_profit:,.2f}*  (R:R 1:{plan.risk_reward})",
-            f"  💀 Likuidasi: *${plan.liquidation:,.2f}*",
+            f"  🛑 SL: *{money(plan.stop_loss, currency, rate)}*",
+            f"  ✅ TP: *{money(plan.take_profit, currency, rate)}*  (R:R 1:{plan.risk_reward})",
+            f"  💀 Likuidasi: *{money(plan.liquidation, currency, rate)}*",
         ]
         if plan.position_size_usd:
             lines.append(
-                f"  📦 Posisi: *${plan.position_size_usd:,.0f}* "
+                f"  📦 Posisi: *{money(plan.position_size_usd, currency, rate, 0)}* "
                 f"({plan.position_size_btc} BTC)"
             )
     else:

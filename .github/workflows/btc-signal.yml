@@ -43,5 +43,6 @@ jobs:
           python main.py \
             --both \
             --leverage 3 \
+            --currency idr \
             --interval "${{ github.event.inputs.interval || '1h' }}" \
             --only-on-change
