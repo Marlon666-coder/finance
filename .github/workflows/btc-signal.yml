@@ -3,9 +3,10 @@ name: BTC Signal
 # Jalan otomatis + bisa dipicu manual dari tab Actions.
 on:
   schedule:
-    # Setiap jam, menit ke-5 (UTC). Ubah cron sesuai kebutuhan.
-    # Contoh: "0 */4 * * *" = tiap 4 jam.
-    - cron: "5 * * * *"
+    # Setiap 5 menit (UTC) — ini interval TERCEPAT yang diizinkan GitHub.
+    # Catatan: GitHub sering telat beberapa menit saat server sibuk (normal).
+    # Contoh lain: "0 * * * *" = tiap jam, "0 */4 * * *" = tiap 4 jam.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       interval:
