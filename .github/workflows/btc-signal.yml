@@ -1,0 +1,44 @@
+name: BTC Signal
+
+# Jalan otomatis + bisa dipicu manual dari tab Actions.
+on:
+  schedule:
+    # Setiap jam, menit ke-5 (UTC). Ubah cron sesuai kebutuhan.
+    # Contoh: "0 */4 * * *" = tiap 4 jam.
+    - cron: "5 * * * *"
+  workflow_dispatch:
+    inputs:
+      interval:
+        description: "Timeframe (1h / 4h / 1d)"
+        required: false
+        default: "1h"
+
+# Hindari dua run tumpang tindih.
+concurrency:
+  group: btc-signal
+  cancel-in-progress: false
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run BTC signal
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python main.py \
+            --interval "${{ github.event.inputs.interval || '1h' }}" \
+            --only-on-change
