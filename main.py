@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """BTC Signal — entry point.
 
-Jalankan:
+Jalankan sekali (untuk GitHub Actions / manual):
     python main.py                      # timeframe default 1h
     python main.py --interval 4h        # ganti timeframe
     python main.py --only-on-change     # kirim Telegram hanya jika sinyal berubah
     python main.py --notify-only JUAL   # kirim Telegram hanya untuk aksi tertentu
+
+Mode WATCH (loop terus di komputermu sendiri, cek tiap N detik):
+    python main.py --watch              # cek tiap 60 detik (default)
+    python main.py --watch --every 30   # cek tiap 30 detik
+    python main.py --watch --every 60 --only-on-change
+    (hentikan dengan menekan  Ctrl + C )
 
 Environment (opsional, untuk Telegram):
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
@@ -17,6 +23,8 @@ import argparse
 import json
 import os
 import sys
+import time
+from datetime import datetime
 
 from btcsignal.data import get_candles
 from btcsignal.engine import analyze
@@ -41,40 +49,20 @@ def _save_last_action(action: str) -> None:
         pass
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Deteksi arah pasar BTC.")
-    parser.add_argument("--symbol", default="BTCUSDT")
-    parser.add_argument("--interval", default="1h", help="1h, 4h, atau 1d")
-    parser.add_argument("--limit", type=int, default=300)
-    parser.add_argument(
-        "--only-on-change",
-        action="store_true",
-        help="Kirim Telegram hanya jika aksi berbeda dari jalan sebelumnya.",
-    )
-    parser.add_argument(
-        "--notify-only",
-        choices=["BELI", "JUAL", "TAHAN"],
-        help="Kirim Telegram hanya untuk aksi ini.",
-    )
-    parser.add_argument(
-        "--no-notify",
-        action="store_true",
-        help="Jangan kirim Telegram (hanya cetak ke terminal).",
-    )
-    args = parser.parse_args()
-
-    print(f"==> Mengambil data {args.symbol} ({args.interval})...")
+def run_once(args) -> int:
+    """Satu kali: ambil data, analisa, cetak, (opsional) kirim notif."""
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"==> [{stamp}] Mengambil data {args.symbol} ({args.interval})...")
     try:
         candles = get_candles(args.symbol, args.interval, args.limit)
         sig = analyze(candles)
     except Exception as exc:  # noqa: BLE001
-        # Jangan jatuhkan workflow (exit 1) hanya karena sumber data lagi
-        # bermasalah. Laporkan dengan jelas lalu keluar sukses.
+        # Jangan hentikan program hanya karena sumber data lagi bermasalah.
         print(f"[main] GAGAL mengambil/menganalisa data: {exc}")
-        print("[main] Lewati run ini. Akan dicoba lagi pada jadwal berikutnya.")
+        print("[main] Lewati siklus ini. Akan dicoba lagi berikutnya.")
         return 0
 
-    # Cetak ke terminal / log GitHub Actions.
+    # Cetak ke terminal / log.
     print("=" * 48)
     print(f"  AKSI       : {sig.action}")
     print(f"  Harga      : ${sig.price:,.2f}")
@@ -110,6 +98,54 @@ def main() -> int:
             fh.write(f"price={sig.price}\n")
 
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Deteksi arah pasar BTC.")
+    parser.add_argument("--symbol", default="BTCUSDT")
+    parser.add_argument("--interval", default="1h", help="1h, 4h, atau 1d")
+    parser.add_argument("--limit", type=int, default=300)
+    parser.add_argument(
+        "--only-on-change",
+        action="store_true",
+        help="Kirim Telegram hanya jika aksi berbeda dari sebelumnya.",
+    )
+    parser.add_argument(
+        "--notify-only",
+        choices=["BELI", "JUAL", "TAHAN"],
+        help="Kirim Telegram hanya untuk aksi ini.",
+    )
+    parser.add_argument(
+        "--no-notify",
+        action="store_true",
+        help="Jangan kirim Telegram (hanya cetak ke terminal).",
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Mode loop: cek terus-menerus tiap N detik (lihat --every).",
+    )
+    parser.add_argument(
+        "--every",
+        type=int,
+        default=60,
+        help="Jeda antar cek dalam DETIK saat --watch (default 60 = tiap menit).",
+    )
+    args = parser.parse_args()
+
+    if not args.watch:
+        return run_once(args)
+
+    # --- MODE WATCH: loop tiap N detik ---
+    print(f"🔁 Mode WATCH aktif — cek tiap {args.every} detik. Tekan Ctrl+C untuk berhenti.\n")
+    try:
+        while True:
+            run_once(args)
+            print(f"... tidur {args.every} detik ...\n")
+            time.sleep(args.every)
+    except KeyboardInterrupt:
+        print("\n⏹️  Dihentikan. Sampai jumpa!")
+        return 0
 
 
 if __name__ == "__main__":

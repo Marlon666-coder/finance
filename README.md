@@ -115,6 +115,58 @@ sinyal berubah** (pakai flag `--only-on-change`, biar tidak spam).
 
 ---
 
+## 🔁 Mode WATCH — notifikasi tiap menit (jalan di komputer sendiri)
+
+GitHub Actions tidak bisa benar-benar tiap menit (minimal 5 menit & sering telat).
+Kalau mau cek **tiap menit**, pakai **mode watch** yang jalan terus di komputermu.
+
+### ▶️ Cara MENYALAKAN
+
+Buka terminal di folder project ini, lalu:
+
+```bash
+# (sekali saja) set kredensial Telegram
+export TELEGRAM_BOT_TOKEN="token-dari-botfather"
+export TELEGRAM_CHAT_ID="6210337488"
+
+# nyalakan — cek tiap 60 detik (tiap menit)
+python main.py --watch
+
+# atau tiap 30 detik
+python main.py --watch --every 30
+
+# atau tiap menit TAPI hanya kirim saat sinyal berubah (anti-spam)
+python main.py --watch --every 60 --only-on-change
+```
+
+Program akan terus berjalan dan mencetak hasil tiap siklus. Selama terminal ini
+terbuka & komputer nyala, notifikasi akan masuk sesuai jadwal.
+
+> 💡 **Windows:** ganti `export X="..."` menjadi `set X=...` (tanpa tanda kutip),
+> atau di PowerShell: `$env:X="..."`.
+
+### ⏹️ Cara MEMATIKAN
+
+Di terminal yang sedang menjalankannya, tekan:
+
+```
+Ctrl + C
+```
+
+Program langsung berhenti. Untuk menyalakan lagi, cukup jalankan perintah
+`python main.py --watch` tadi sekali lagi.
+
+> ⚠️ **Kelemahan mode watch:** hanya jalan selama terminal terbuka & komputer
+> nyala. Kalau komputer dimatikan / terminal ditutup, ia berhenti — tinggal
+> nyalakan lagi. Untuk 24 jam nonstop tanpa komputer nyala, pakai GitHub Actions
+> (tiap jam) atau sewa VPS murah.
+
+> 📌 **Catatan penting:** sinyal pakai candle 1 jam, jadi dalam 1 jam nilainya
+> hampir selalu sama. Cek tiap menit **tidak** membuat sinyal berubah tiap menit.
+> Kalau tidak mau pesan berulang, tambahkan `--only-on-change`.
+
+---
+
 ## 🔁 Auto-trading (eksekusi jual-beli otomatis)?
 
 Versi ini **sengaja TIDAK** mengeksekusi jual-beli sungguhan — ia hanya
