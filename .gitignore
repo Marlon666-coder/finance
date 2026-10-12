@@ -4,3 +4,8 @@ __pycache__/
 venv/
 .last_signal.json
 .env
+.python-version
+
+# Model AI hasil training (dibuat lokal lewat train_ai.py)
+model_logreg.json
+model_rf.pkl

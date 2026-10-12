@@ -270,6 +270,60 @@ Contoh output Telegram:
 
 ---
 
+## 🤖 Mode AI (machine learning)
+
+Selain indikator teknikal, software bisa pakai **model AI** yang **belajar dari
+data historis BTC** untuk memperkirakan arah candle berikutnya.
+
+> ### ⚠️ Jangan berharap ajaib
+> Pasar crypto mendekati **acak**. AI ini realistis cuma benar **~50–60%**
+> (sedikit di atas tebak koin). Ia **sering salah** — sama seperti indikator,
+> cuma caranya beda. **Bukan nasihat finansial, bukan mesin uang.**
+
+### Cara kerja (jujur & transparan)
+1. Ambil ribuan candle historis → ubah jadi fitur (indikator)
+2. Bagi data **kronologis**: 80% latih, 20% uji
+3. Latih model, lalu **uji di data yang belum pernah dilihat** → akurasi JUJUR
+   (mencegah "overfitting" / akurasi palsu)
+4. Simpan model, lalu dipakai untuk prediksi live
+
+Model: **RandomForest** (kalau scikit-learn ada) atau **Logistic Regression
+murni-Python** (fallback, tanpa library — tetap jalan di mana saja).
+
+### Langkah pakai
+
+```bash
+# (opsional, bikin model lebih kuat) install scikit-learn
+pip install -r requirements-ai.txt
+
+# 1) Latih model (sekali; butuh internet untuk ambil data historis)
+python train_ai.py                      # 1500 candle 1h
+python train_ai.py --interval 4h --limit 1000
+
+# 2) Pakai prediksi AI di sinyal
+python main.py --ai
+python main.py --both --ai --currency idr --watch
+```
+
+Setelah training kamu akan lihat laporan seperti:
+
+```
+================ HASIL ================
+  Akurasi di data LATIH : 58.3%
+  Akurasi di data UJI   : 53.1%   (ini yang JUJUR, 290 sampel)
+  Baseline (asal tebak) : 51.4%
+=======================================
+```
+
+> **Baca angka "UJI", bukan "LATIH".** Akurasi latih selalu terlihat bagus
+> (model menghafal). Yang penting akurasi di data uji vs baseline. Kalau tidak
+> lebih baik dari baseline → jangan diandalkan.
+
+Prediksi AI muncul sebagai **pendapat tambahan** di output & Telegram
+(mis. `🤖 AI: NAIK 📈 (prob naik 63%)`), **tidak** menggantikan sinyal teknikal.
+
+---
+
 ## 🔁 Auto-trading (eksekusi jual-beli otomatis)?
 
 Versi ini **sengaja TIDAK** mengeksekusi jual-beli sungguhan — ia hanya

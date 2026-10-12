@@ -28,7 +28,9 @@ from datetime import datetime
 
 from btcsignal.data import get_candles, get_usd_to_idr
 from btcsignal.engine import analyze
+from btcsignal.features import latest_feature_row
 from btcsignal.futures import build_plan
+from btcsignal.ml_model import Model
 from btcsignal.notify import (
     format_combined_message,
     format_futures_message,
@@ -68,6 +70,20 @@ def run_once(args) -> int:
         print(f"[main] GAGAL mengambil/menganalisa data: {exc}")
         print("[main] Lewati siklus ini. Akan dicoba lagi berikutnya.")
         return 0
+
+    # Prediksi AI (opsional). Memberi "pendapat kedua" berupa probabilitas NAIK.
+    ai_prob = None
+    if args.ai:
+        model = Model.load()
+        if model is None:
+            print("[ai] Model belum ada. Latih dulu: python train_ai.py")
+        else:
+            try:
+                ai_prob = model.predict_proba_up(latest_feature_row(candles))
+                print(f"[ai] Model {model.kind} — prob NAIK candle berikutnya: "
+                      f"{ai_prob*100:.1f}%")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[ai] Gagal prediksi: {exc}")
 
     # Mata uang tampilan: usd (default) atau idr.
     currency = (args.currency or "usd").lower()
@@ -115,6 +131,10 @@ def run_once(args) -> int:
         print("     Catatan  :")
         for n in plan.notes:
             print(f"       - {n}")
+    if ai_prob is not None:
+        arah = "NAIK 📈" if ai_prob >= 0.5 else "TURUN 📉"
+        print("  " + "-" * 44)
+        print(f"  🤖 AI       : {arah}  (prob naik {ai_prob*100:.1f}%)")
     print("=" * 48)
 
     # Tentukan apakah perlu kirim notifikasi.
@@ -137,11 +157,11 @@ def run_once(args) -> int:
 
     if should_notify:
         if args.both and plan is not None:
-            send_telegram(format_combined_message(sig, plan, args.interval, currency, rate))
+            send_telegram(format_combined_message(sig, plan, args.interval, currency, rate, ai_prob))
         elif plan is not None:
-            send_telegram(format_futures_message(plan, args.interval, currency, rate))
+            send_telegram(format_futures_message(plan, args.interval, currency, rate, ai_prob))
         else:
-            send_telegram(format_message(sig, args.interval, currency, rate))
+            send_telegram(format_message(sig, args.interval, currency, rate, ai_prob))
 
     _save_last_action(current_state)
 
@@ -191,6 +211,11 @@ def main() -> int:
         "--both",
         action="store_true",
         help="Tampilkan SPOT + FUTURES sekaligus dalam satu pesan.",
+    )
+    parser.add_argument(
+        "--ai",
+        action="store_true",
+        help="Tambahkan prediksi AI (butuh model; latih dulu: python train_ai.py).",
     )
     parser.add_argument(
         "--leverage",

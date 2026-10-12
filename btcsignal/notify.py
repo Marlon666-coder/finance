@@ -41,8 +41,16 @@ def money(value_usd: float, currency: str = "usd", rate: float = 1.0,
     return f"${value_usd:,.{dec}f}"
 
 
+def _ai_line(ai_prob):
+    if ai_prob is None:
+        return None
+    arah = "NAIK 📈" if ai_prob >= 0.5 else "TURUN 📉"
+    return f"🤖 *AI:* {arah}  (prob naik {ai_prob*100:.0f}%)"
+
+
 def format_message(sig: Signal, interval: str,
-                   currency: str = "usd", rate: float = 1.0) -> str:
+                   currency: str = "usd", rate: float = 1.0,
+                   ai_prob=None) -> str:
     emoji = _EMOJI.get(sig.action, "")
     lines = [
         f"{emoji} *BTC SIGNAL — {sig.action}*",
@@ -50,9 +58,11 @@ def format_message(sig: Signal, interval: str,
         f"💰 Harga: *{money(sig.price, currency, rate)}*",
         f"🎯 Keyakinan: *{sig.confidence}%*  (skor {sig.score:+.2f})",
         f"🕒 Timeframe: `{interval}`",
-        "",
-        "*Alasan:*",
     ]
+    ai = _ai_line(ai_prob)
+    if ai:
+        lines.append(ai)
+    lines += ["", "*Alasan:*"]
     for r in sig.reasons:
         lines.append(f"• {r}")
     lines.append("")
@@ -64,7 +74,8 @@ _POS_EMOJI = {"LONG": "🟢⬆️ LONG", "SHORT": "🔴⬇️ SHORT", "NO-TRADE"
 
 
 def format_futures_message(plan, interval: str,
-                           currency: str = "usd", rate: float = 1.0) -> str:
+                           currency: str = "usd", rate: float = 1.0,
+                           ai_prob=None) -> str:
     """Format pesan untuk rencana FUTURES."""
     head = _POS_EMOJI.get(plan.position, plan.position)
     lines = [
@@ -74,6 +85,9 @@ def format_futures_message(plan, interval: str,
         f"🎯 Keyakinan: *{plan.confidence}%*",
         f"🕒 Timeframe: `{interval}`  |  ⚖️ Leverage: *{plan.leverage}x*",
     ]
+    ai = _ai_line(ai_prob)
+    if ai:
+        lines.append(ai)
 
     if plan.position != "NO-TRADE":
         lines += [
@@ -104,7 +118,8 @@ def format_futures_message(plan, interval: str,
 
 
 def format_combined_message(sig: Signal, plan, interval: str,
-                            currency: str = "usd", rate: float = 1.0) -> str:
+                            currency: str = "usd", rate: float = 1.0,
+                            ai_prob=None) -> str:
     """Satu pesan berisi SPOT + FUTURES sekaligus."""
     spot_emoji = _EMOJI.get(sig.action, "")
     pos = _POS_EMOJI.get(plan.position, plan.position)
@@ -112,6 +127,11 @@ def format_combined_message(sig: Signal, plan, interval: str,
     lines = [
         "📊 *BTC — SPOT & FUTURES*",
         f"💰 Harga: *{money(sig.price, currency, rate)}*   |   🕒 `{interval}`",
+    ]
+    ai = _ai_line(ai_prob)
+    if ai:
+        lines.append(ai)
+    lines += [
         "",
         "──────────────",
         f"🏦 *SPOT:* {spot_emoji} *{sig.action}*  ({sig.confidence}%)",
